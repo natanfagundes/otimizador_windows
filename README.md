@@ -1,5 +1,5 @@
 # otimizador_windows
 otimizador windows
 
-cd Desktop\n
+cd Desktop |
 cd python disc.py
