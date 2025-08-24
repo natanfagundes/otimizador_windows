@@ -1,137 +1,265 @@
 import os
 import socket
+import subprocess
+import platform
+import shlex
+import logging
+import ctypes
+from pathlib import Path
 
-# Função simples para pegar o IP da máquina
+# Configura o log pra guardar o que o script faz
+logging.basicConfig(filename='manutencao.log', level=logging.INFO, format='%(asctime)s - %(message)s')
+
+# Checa se tá rodando no Windows
+def checar_sistema():
+    if platform.system() != "Windows":
+        print("Esse script é só pra Windows, sorry!")
+        logging.error("Sistema não é Windows")
+        exit(1)
+
+# Verifica se o script tá com permissão de admin
+def tem_permissao_admin():
+    return ctypes.windll.shell32.IsUserAnAdmin()
+
+# Função pra rodar comandos com feedback decente
+def rodar_comando(comando, msg, precisa_shell=False):
+    if not tem_permissao_admin():
+        print(f"Precisa rodar como admin pra {msg.lower()}!")
+        logging.warning(f"{msg} falhou: sem permissão de admin")
+        return False
+    try:
+        result = subprocess.run(
+            comando,
+            shell=precisa_shell,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        print(f"{msg} deu certo!")
+        logging.info(f"{msg} concluído: {result.stdout}")
+        return True
+    except subprocess.SubprocessError as e:
+        print(f"Deu ruim no {msg.lower()}: {e}")
+        logging.error(f"{msg} falhou: {e} - {e.stderr}")
+        return False
+
+# Checa se o winget tá instalado
+def tem_winget():
+    try:
+        result = subprocess.run('winget --version', shell=True, capture_output=True, text=True)
+        return result.returncode == 0
+    except FileNotFoundError:
+        print("Winget não tá instalado. Baixe da Microsoft Store!")
+        logging.error("Winget não encontrado")
+        return False
+
+# Pega o IP da máquina
 def pegar_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))  # Usa o Google DNS pra testar
+        s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
         return ip
     except:
-        return "Não consegui pegar o IP!"
+        logging.error("Falha ao pegar IP")
+        return "Não rolou pegar o IP!"
 
-# Opções do menu
-limpeza = "0 - Limpeza de arquivos temporários"
-rede = "1 - Teste de conexão (ping)"
-firewall = "2 - Gerenciar Firewall"
-otimizar = "3 - Otimizar o Windows"
-gerenciar_rede = "4 - Gerenciar Rede"
+# Limpa arquivos temporários
+def limpar_temp():
+    logging.info("Limpando arquivos temporários")
+    print("Vai limpar os arquivos temporários...")
+    if input("Confirma? (s/n): ").lower() != 's':
+        print("Beleza, cancelado.")
+        logging.info("Limpeza cancelada")
+        return
+    rodar_comando(
+        ['del', '/q', '/f', '/s', r'%temp%\*', '&&', 'del', '/q', '/f', '/s', r'C:\Windows\Temp\*'],
+        "Limpeza de arquivos temporários",
+        precisa_shell=True
+    )
 
-while True:
-    # Mostra o menu
-    print("=" * 30)
-    print(limpeza)
-    print(rede)
-    print(firewall)
-    print(otimizar)
-    print(gerenciar_rede)
+# Testa conexão com ping
+def testar_conexao():
+    ip_local = pegar_ip()
+    print(f"Seu IP: {ip_local}")
+    destino = input("Digite um IP ou site (ou Enter pra 8.8.8.8): ") or "8.8.8.8"
+    logging.info(f"Ping em {destino}")
+    print(f"Pingando {destino}...")
+    rodar_comando(['ping', '-n', '4', shlex.quote(destino)], f"Teste de conexão com {destino}")
 
-    # Pede a opção pro usuário
+# Gerencia o firewall
+def gerenciar_firewall():
     try:
-        opcao = int(input("Escolha uma opção (0-10): "))
-        
-        if opcao == 0:
-            print(f"Você escolheu: {limpeza}")
-            # Executa comandos de limpeza como administrador
-            comando = 'del /q /f /s %temp%\\* & del /q /f /s C:\\Windows\\Temp\\*'
-            os.system(f'powershell -Command "Start-Process cmd -ArgumentList \'/c {comando}\' -Verb RunAs"')
-            print("Arquivos temporários limpos (se você permitiu no UAC)!")
-
-        elif opcao == 1:
-            print(f"Você escolheu: {rede}")
-            # Mostra o IP local
-            print(f"Seu IP local é: {pegar_ip()}")
-            # Pede o IP ou hostname pro ping
-            destino = input("Digite um IP ou site pra testar (ou Enter pra usar 8.8.8.8): ")
-            if destino == "":
-                destino = "8.8.8.8"  # Usa o Google DNS como padrão
-            print(f"Testando conexão com {destino}...")
-            os.system(f"ping -n 4 {destino}")  # Faz 4 pings
-            print("Teste de conexão concluído!")
-
-        elif opcao == 2:
-            print(f"Você escolheu: {firewall}")
-            try:
-                escolha = int(input("Escolha:\n1 - Ativar\n2 - Desativar\n"))
-                if escolha == 1:
-                    comando = 'netsh advfirewall set allprofiles state on'
-                    os.system(f'powershell -Command "Start-Process cmd -ArgumentList \'/c {comando}\' -Verb RunAs"')
-                    print("Firewall ativado (se você permitiu no UAC)!")
-                elif escolha == 2:
-                    comando = 'netsh advfirewall set allprofiles state off'
-                    os.system(f'powershell -Command "Start-Process cmd -ArgumentList \'/c {comando}\' -Verb RunAs"')
-                    print("Firewall desativado (se você permitiu no UAC)!")
-                else:
-                    print("Opção inválida! Escolha 1 ou 2.")
-            except ValueError:
-                print("Por favor, digite um número!")
-
-        elif opcao == 3:
-            print(f"Você escolheu: {otimizar}")
-            print("Iniciando otimização do Windows... (confirme os prompts do UAC)")
-            
-            # Executa cleanmgr (Limpeza de Disco)
-            print("Abrindo Limpeza de Disco...")
-            os.system('powershell -Command "Start-Process cleanmgr -Verb RunAs"')
-            print("Limpeza de Disco concluída (se você selecionou os arquivos)!")
-            
-            # Executa sfc /scannow (Verificador de Arquivos do Sistema)
-            print("Verificando arquivos do sistema...")
-            os.system('powershell -Command "Start-Process cmd -ArgumentList \'/c sfc /scannow\' -Verb RunAs"')
-            print("Verificação de arquivos do sistema concluída!")
-            
-            # Executa chkdsk /f /r (Verificação de disco)
-            print("Agendando verificação de disco (pode exigir reinicialização)...")
-            os.system('powershell -Command "Start-Process cmd -ArgumentList \'/c chkdsk C: /f /r\' -Verb RunAs"')
-            print("Verificação de disco agendada (reinicie o PC se necessário)!")
-            
-            # Executa defrag C: /O (Desfragmentação)
-            print("Desfragmentando o disco C:...")
-            os.system('powershell -Command "Start-Process cmd -ArgumentList \'/c defrag C: /O\' -Verb RunAs"')
-            print("Desfragmentação concluída!")
-            
-            print("Otimização do Windows finalizada!")
-
-        elif opcao == 4:
-            print(f"Você escolheu: {gerenciar_rede}")
-            try:
-                escolha = int(input("Escolha:\n1 - Reiniciar serviço\n2 - Renovar IP\n3 - Limpar DNS\n4 - Redefinir rede\n"))
-                if escolha == 1:
-                    servico = input("Digite o nome do serviço (ex.: wuauserv, dnscache): ")
-                    print(f"Reiniciando o serviço {servico}...")
-                    comando = f'net stop {servico} & net start {servico}'
-                    os.system(f'powershell -Command "Start-Process cmd -ArgumentList \'/c {comando}\' -Verb RunAs"')
-                    print(f"Serviço {servico} reiniciado (se você permitiu no UAC)!")
-                elif escolha == 2:
-                    print("Renovando IP...")
-                    comando = 'ipconfig /release & ipconfig /renew'
-                    os.system(f'powershell -Command "Start-Process cmd -ArgumentList \'/c {comando}\' -Verb RunAs"')
-                    print("IP renovado (se você permitiu no UAC)!")
-                elif escolha == 3:
-                    print("Limpando cache de DNS...")
-                    comando = 'ipconfig /flushdns'
-                    os.system(f'powershell -Command "Start-Process cmd -ArgumentList \'/c {comando}\' -Verb RunAs"')
-                    print("Cache de DNS limpo (se você permitiu no UAC)!")
-                elif escolha == 4:
-                    print("Redefinindo configurações de rede (pode exigir reinicialização)...")
-                    comando = 'netsh winsock reset & netsh int ip reset'
-                    os.system(f'powershell -Command "Start-Process cmd -ArgumentList \'/c {comando}\' -Verb RunAs"')
-                    print("Rede redefinida (reinicie o PC para aplicar as mudanças)!")
-                else:
-                    print("Opção inválida! Escolha 1, 2, 3 ou 4.")
-            except ValueError:
-                print("Por favor, digite um número!")
-
+        escolha = int(input("1 - Ligar firewall\n2 - Desligar firewall\nEscolha: "))
+        if escolha == 1:
+            rodar_comando(['netsh', 'advfirewall', 'set', 'allprofiles', 'state', 'on'], "Ativação do firewall")
+        elif escolha == 2:
+            if input("Desligar o firewall pode ser arriscado. Confirma? (s/n): ").lower() != 's':
+                print("Cancelado.")
+                logging.info("Desativação do firewall cancelada")
+                return
+            rodar_comando(['netsh', 'advfirewall', 'set', 'allprofiles', 'state', 'off'], "Desativação do firewall")
         else:
-            print("Opção inválida! Escolha entre 0 e 10.")
-
-        # Pergunta se quer continuar
-        continuar = input("Quer continuar? (s/n): ")
-        if continuar.lower() != "s":
-            print("Saindo do programa...")
-            break
-
+            print("Escolha 1 ou 2, por favor!")
     except ValueError:
-        print("Por favor, digite um número!")
+        print("Digita um número, cara!")
+        logging.error("Entrada inválida no firewall")
+
+# Otimiza o Windows (limpeza, verificação, desfragmentação)
+def otimizar_windows():
+    logging.info("Iniciando otimização")
+    print("Vai otimizar o Windows (limpeza, verificação e desfragmentação)...")
+    if input("Confirma? (s/n): ").lower() != 's':
+        print("Cancelado.")
+        logging.info("Otimização cancelada")
+        return
+    
+    print("Limpando disco...")
+    rodar_comando(['cleanmgr', '/sageribbon'], "Limpeza de disco")
+    
+    print("Verificando arquivos do sistema...")
+    rodar_comando(['sfc', '/scannow'], "Verificação de arquivos")
+    
+    print("Agendando verificação de disco (pode precisar reiniciar)...")
+    rodar_comando(['chkdsk', 'C:', '/f', '/r'], "Verificação de disco")
+    
+    print("Desfragmentando disco C:...")
+    rodar_comando(['defrag', 'C:', '/O'], "Desfragmentação do disco C:")
+
+    print("Otimização concluída!")
+    logging.info("Otimização concluída")
+
+# Gerencia a rede
+def gerenciar_rede():
+    try:
+        escolha = int(input("1 - Reiniciar serviço\n2 - Renovar IP\n3 - Limpar DNS\n4 - Redefinir rede\nEscolha: "))
+        acoes = {
+            1: lambda: rodar_comando(
+                ['net', 'stop', shlex.quote(input("Nome do serviço (ex.: wuauserv): ")), '&&', 'net', 'start', shlex.quote(input("Nome do serviço novamente: "))],
+                "Reinício de serviço",
+                precisa_shell=True
+            ),
+            2: lambda: rodar_comando(['ipconfig', '/release', '&&', 'ipconfig', '/renew'], "Renovação de IP", precisa_shell=True),
+            3: lambda: rodar_comando(['ipconfig', '/flushdns'], "Limpeza de DNS", precisa_shell=True),
+            4: lambda: rodar_comando(
+                ['netsh', 'winsock', 'reset', '&&', 'netsh', 'int', 'ip', 'reset'],
+                "Redefinição de rede",
+                precisa_shell=True
+            )
+        }
+        if escolha == 4:
+            if input("Redefinir a rede pode exigir reiniciar o PC. Confirma? (s/n): ").lower() != 's':
+                print("Cancelado.")
+                logging.info("Redefinição de rede cancelada")
+                return
+        if escolha in acoes:
+            acoes[escolha]()
+        else:
+            print("Escolha 1, 2, 3 ou 4!")
+    except ValueError:
+        print("Digita um número, por favor!")
+        logging.error("Entrada inválida na gestão de rede")
+
+# Gerencia drivers
+def gerenciar_drivers():
+    backup_dir = Path.home() / "Desktop" / "backup"
+    backup_dir.mkdir(exist_ok=True)
+    try:
+        escolha = int(input("1 - Fazer backup de drivers\n2 - Instalar drivers\nEscolha: "))
+        acoes = {
+            1: lambda: rodar_comando(['dism', '/online', '/export-driver', f'/destination:{backup_dir}'], f"Backup de drivers em {backup_dir}"),
+            2: lambda: rodar_comando(['dism', '/online', '/add-driver', f'/driver:{backup_dir}', '/recurse'], "Instalação de drivers")
+        }
+        if escolha in acoes:
+            acoes[escolha]()
+            if escolha == 1:
+                print(f"Backup salvo em {backup_dir}")
+        else:
+            print("Escolha 1 ou 2!")
+    except ValueError:
+        print("Digita um número, cara!")
+        logging.error("Entrada inválida na gestão de drivers")
+
+# Diagnóstico de memória
+def checar_memoria():
+    logging.info("Iniciando diagnóstico de memória")
+    print("Verificando memória...")
+    rodar_comando(['wmic', 'memorychip'], "Diagnóstico de memória")
+
+# Atualiza programas com winget
+def atualizar_programas():
+    logging.info("Iniciando atualização com winget")
+    print("Atualizando programas...")
+    if not tem_winget():
+        return
+    if input("Vai atualizar tudo com winget, pode demorar. Confirma? (s/n): ").lower() != 's':
+        print("Cancelado.")
+        logging.info("Atualização cancelada")
+        return
+    rodar_comando(['winget', 'upgrade', '--all'], "Atualização de programas")
+
+# Desfragmenta discos
+def desfragmentar():
+    logging.info("Iniciando desfragmentação")
+    print("Desfragmentando discos...")
+    if input("Só pra HDs, não SSDs. Pode demorar. Confirma? (s/n): ").lower() != 's':
+        print("Cancelado.")
+        logging.info("Desfragmentação cancelada")
+        return
+    rodar_comando(['defrag', '/C', '/O'], "Desfragmentação de discos")
+
+# Repara arquivos do sistema
+def reparar_sistema():
+    logging.info("Iniciando reparo do sistema")
+    print("Reparando sistema...")
+    if input("DISM e SFC podem demorar e alterar arquivos. Confirma? (s/n): ").lower() != 's':
+        print("Cancelado.")
+        logging.info("Reparo cancelado")
+        return
+    print("Rodando DISM...")
+    rodar_comando(['DISM', '/Online', '/Cleanup-Image', '/RestoreHealth'], "Reparo DISM")
+    print("Rodando SFC...")
+    rodar_comando(['sfc', '/scannow'], "Verificação SFC")
+
+# Menu principal
+def main():
+    checar_sistema()
+    opcoes = {
+        0: ("Limpar arquivos temporários", limpar_temp, "Apaga arquivos temporários pra liberar espaço"),
+        1: ("Testar conexão (ping)", testar_conexao, "Faz ping pra checar conexão"),
+        2: ("Gerenciar firewall", gerenciar_firewall, "Liga ou desliga o firewall"),
+        3: ("Otimizar Windows", otimizar_windows, "Limpa disco, verifica arquivos e desfragmenta"),
+        4: ("Gerenciar rede", gerenciar_rede, "Controla serviços de rede, IP e DNS"),
+        5: ("Gerenciar drivers", gerenciar_drivers, "Faz backup ou restaura drivers"),
+        6: ("Checar memória", checar_memoria, "Mostra info da RAM"),
+        7: ("Atualizar programas (winget)", atualizar_programas, "Atualiza todos os programas"),
+        8: ("Desfragmentar discos", desfragmentar, "Otimiza HDs (evite em SSDs)"),
+        9: ("Reparar sistema", reparar_sistema, "Conserta arquivos do Windows")
+    }
+
+    while True:
+        print("\n" + "=" * 30)
+        print("Menu de Manutenção")
+        print("=" * 30)
+        for key, (nome, _, desc) in opcoes.items():
+            print(f"{key} - {nome}: {desc}")
+        
+        try:
+            opcao = int(input("\nEscolha uma opção (0-9): "))
+            if opcao in opcoes:
+                print(f"\nRodando: {opcoes[opcao][0]}")
+                opcoes[opcao][1]()
+            else:
+                print("Opção inválida, escolhe entre 0 e 9!")
+            
+            if input("\nQuer continuar? (s/n): ").lower() != 's':
+                print("Tchau!")
+                logging.info("Script finalizado")
+                break
+        except ValueError:
+            print("Digita um número, por favor!")
+            logging.error("Entrada inválida no menu")
+
+if __name__ == "__main__":
+    main()
