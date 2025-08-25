@@ -52,7 +52,6 @@ def pegar_ip():
         logging.error(f"Falha ao pegar IP: {e}")
         return "Não consegui pegar o IP!"
 
-# Limpa arquivos temporários
 def limpar_temp():
     logging.info("Limpando arquivos temporários")
     print("Vai limpar arquivos temporários...")
@@ -63,7 +62,6 @@ def limpar_temp():
     comando = 'del /q /f /s %temp%\\* & del /q /f /s C:\\Windows\\Temp\\*'
     executar_comando_admin(comando, "Limpeza de arquivos temporários")
 
-# Testa conexão com ping
 def testar_conexao():
     ip_local = pegar_ip()
     print(f"Seu IP local: {ip_local}")
@@ -72,7 +70,6 @@ def testar_conexao():
     print(f"Pingando {destino}...")
     os.system(f"ping -n 4 {destino}")  # Não precisa admin
 
-# Gerencia firewall
 def gerenciar_firewall():
     try:
         escolha = int(input("1 - Ativar firewall\n2 - Desativar firewall\nEscolha: "))
@@ -111,7 +108,6 @@ def otimizar_windows():
     print("Otimização concluída!")
     logging.info("Otimização concluída")
 
-# Gerencia rede
 def gerenciar_rede():
     try:
         escolha = int(input("1 - Reiniciar serviço\n2 - Renovar IP\n3 - Limpar DNS\n4 - Redefinir rede\nEscolha: "))
@@ -138,7 +134,6 @@ def gerenciar_rede():
         print("Digite um número!")
         logging.error("Entrada inválida na rede")
 
-# Gerencia drivers
 def gerenciar_drivers():
     backup_dir = str(Path.home() / "Desktop" / "backup")
     os.makedirs(backup_dir, exist_ok=True)
@@ -157,13 +152,11 @@ def gerenciar_drivers():
         print("Digite um número!")
         logging.error("Entrada inválida nos drivers")
 
-# Checa memória
 def checar_memoria():
     logging.info("Iniciando checagem de memória")
     print("Verificando memória...")
     os.system('wmic memorychip')  # Não precisa admin
 
-# Atualiza programas com winget
 def atualizar_programas():
     logging.info("Iniciando atualização com winget")
     if not tem_winget():
@@ -174,7 +167,6 @@ def atualizar_programas():
         return
     executar_comando_admin('winget upgrade --all', "Atualização de programas")
 
-# Desfragmenta discos
 def desfragmentar():
     logging.info("Iniciando desfragmentação")
     print("Desfragmentando discos (evite em SSDs)...")
@@ -184,7 +176,6 @@ def desfragmentar():
         return
     executar_comando_admin('defrag /C /O', "Desfragmentação de discos")
 
-# Repara sistema
 def reparar_sistema():
     logging.info("Iniciando reparo do sistema")
     print("Vai reparar o sistema...")
@@ -195,7 +186,72 @@ def reparar_sistema():
     executar_comando_admin('DISM /Online /Cleanup-Image /RestoreHealth', "Reparo DISM")
     executar_comando_admin('sfc /scannow', "Reparo SFC")
 
-# Menu principal
+def gerenciar_inicializacao():
+    logging.info("Iniciando gerenciamento de inicialização")
+    print("Listando programas de inicialização...")
+    os.system('wmic startup list brief')
+    if input("Deseja desativar um programa de inicialização? (s/n): ").lower() != 's':
+        print("Cancelado.")
+        logging.info("Gerenciamento de inicialização cancelado")
+        return
+    nome_programa = input("Digite o nome do programa (conforme listado): ")
+    comando = f'reg delete "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run" /v "{nome_programa}" /f'
+    executar_comando_admin(comando, f"Desativação do programa de inicialização {nome_programa}")
+
+def configurar_energia():
+    logging.info("Iniciando configuração de energia")
+    print("Listando planos de energia...")
+    os.system('powercfg /list')
+    if input("Ativar plano de alto desempenho? (s/n): ").lower() != 's':
+        print("Cancelado.")
+        logging.info("Configuração de energia cancelada")
+        return
+    comando = 'powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'  # GUID do plano de alto desempenho
+    executar_comando_admin(comando, "Ativação do plano de alto desempenho")
+
+def gerenciar_servicos():
+    logging.info("Iniciando gerenciamento de serviços")
+    print("Listando serviços ativos...")
+    os.system('net start')
+    if input("Deseja desativar um serviço? (s/n): ").lower() != 's':
+        print("Cancelado.")
+        logging.info("Gerenciamento de serviços cancelado")
+        return
+    servico = input("Digite o nome do serviço (ex: wsearch, spooler): ")
+    comando = f'sc config {servico} start=disabled'
+    executar_comando_admin(comando, f"Desativação do serviço {servico}")
+    print(f"Serviço {servico} desativado. Reinicie para aplicar.")
+
+def limpar_logs_eventos():
+    logging.info("Iniciando limpeza de logs de eventos")
+    print("Vai limpar logs de eventos do Windows...")
+    if input("Confirma? (s/n): ").lower() != 's':
+        print("Cancelado.")
+        logging.info("Limpeza de logs cancelada")
+        return
+    comando = 'wevtutil cl System & wevtutil cl Application'
+    executar_comando_admin(comando, "Limpeza de logs de eventos")
+
+def otimizar_efeitos_visuais():
+    logging.info("Iniciando otimização de efeitos visuais")
+    print("Desativando efeitos visuais para melhorar desempenho...")
+    if input("Confirma? (s/n): ").lower() != 's':
+        print("Cancelado.")
+        logging.info("Otimização de efeitos visuais cancelada")
+        return
+    comando = 'reg add "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects" /v VisualFXSetting /t REG_DWORD /d 2 /f'
+    executar_comando_admin(comando, "Otimização de efeitos visuais")
+
+def comprimir_sistema():
+    logging.info("Iniciando compressão de arquivos do sistema")
+    print("Comprimindo arquivos do sistema para liberar espaço...")
+    if input("Confirma? (s/n): ").lower() != 's':
+        print("Cancelado.")
+        logging.info("Compressão cancelada")
+        return
+    comando = 'compact /c /s:C:\\Windows'
+    executar_comando_admin(comando, "Compressão de arquivos do sistema")
+
 def main():
     checar_sistema()
     opcoes = {
@@ -208,7 +264,13 @@ def main():
         6: ("Checar memória", checar_memoria),
         7: ("Atualizar programas (winget)", atualizar_programas),
         8: ("Desfragmentar discos", desfragmentar),
-        9: ("Reparar sistema", reparar_sistema)
+        9: ("Reparar sistema", reparar_sistema),
+        10: ('Gerenciar Inicialização', gerenciar_inicializacao),
+        11: ('Configurar Energia', configurar_energia),
+        12: ('Gerenciar Serviços', gerenciar_servicos),
+        13: ('Limpar Logs de Eventos',limpar_logs_eventos),
+        14: ('Otimizar Efeitos Visuais',otimizar_efeitos_visuais),
+        15: ('Comprimir Arquivos Sistemas',comprimir_sistema)
     }
 
     while True:
@@ -218,7 +280,7 @@ def main():
         for key, (nome, _) in opcoes.items():
             print(f"{key} - {nome}")
         try:
-            opcao = int(input("\nEscolha uma opção (0-9): "))
+            opcao = int(input("\nEscolha uma opção (0-15): "))
             if opcao in opcoes:
                 print(f"\nExecutando: {opcoes[opcao][0]}")
                 opcoes[opcao][1]()
