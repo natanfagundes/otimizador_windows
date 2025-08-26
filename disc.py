@@ -270,13 +270,15 @@ def main():
         12: ('Gerenciar Serviços', gerenciar_servicos),
         13: ('Limpar Logs de Eventos',limpar_logs_eventos),
         14: ('Otimizar Efeitos Visuais',otimizar_efeitos_visuais),
-        15: ('Comprimir Arquivos Sistemas',comprimir_sistema)
+        15: ('Comprimir Arquivos Sistemas',comprimir_sistema),
     }
 
     while True:
-        print("\n" + "=" * 30)
+        print("\n" + "=" * 40)
         print("Menu de Manutenção")
-        print("=" * 30)
+        print('Feito por: Natan Fagundes')
+        print('https://github.com/natanfagundes')
+        print("=" * 40)
         for key, (nome, _) in opcoes.items():
             print(f"{key} - {nome}")
         try:
