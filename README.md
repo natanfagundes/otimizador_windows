@@ -39,4 +39,4 @@ O menu principal oferece diversas opções de manutenção:
 1. Clone o repositório:
    ```bash
    git clone https://github.com/natanfagundes/otimizador_windows)
-   cd disc.py
+   python disc.py
