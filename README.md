@@ -4,7 +4,7 @@ Este projeto é um **utilitário em Python** que automatiza várias tarefas de m
 
 ## 📌 Funcionalidades
 
-O menu principal oferece diversas opções de manutenção:
+O menu principal oferece diversas opções de manutenção::
 
 - **0** - Limpar arquivos temporários  
 - **1** - Testar conexão (ping)  
